@@ -6,9 +6,13 @@ import btoa from "btoa";
 
 const app = express();
 
-const client_id = "";
-const client_secret = "";
+const { CLIENT_ID, CLIENT_SECRET } = process.env;
 
+if(!CLIENT_ID || !CLIENT_SECRET)
+  {
+    console.error("Missing required env vars!");
+    process.exit(1);
+  }
 
 
 const redirectURI = "http://localhost:3000/spotify-callback";
@@ -19,7 +23,7 @@ app.get("/login", (req, res) => {
     "https://accounts.spotify.com/authorize?" +
     querystring.stringify({
       redirect_uri: redirectURI,
-      client_id,
+      client_id: CLIENT_ID,
       response_type: "code",
       scope: [
         "playlist-read-private",
@@ -49,8 +53,8 @@ app.get("/spotify-callback", (req, res) => {
       grant_type: "authorization_code",
       code,
       redirect_uri: redirectURI,
-      client_id,
-      client_secret
+      client_id: CLIENT_ID,
+      client_secret: CLIENT_SECRET
     }
   }, (error, response, body) => {
     if(error)
