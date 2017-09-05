@@ -15,7 +15,7 @@ if(!CLIENT_ID || !CLIENT_SECRET)
   }
 
 
-const redirectURI = "http://localhost:3000/spotify-callback";
+const redirectURI = "http://localhost:3001/spotify-callback";
 
 app.get("/login", (req, res) => {
 
@@ -68,4 +68,4 @@ app.get("/spotify-callback", (req, res) => {
   })
 });
 
-app.listen(3000);
+app.listen(3001);
