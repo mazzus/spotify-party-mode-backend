@@ -8,6 +8,7 @@ import bodyParser from "body-parser";
 import mongoose from "mongoose";
 import Login from "./models/login";
 import fetch from "isomorphic-fetch";
+import SpotifyApi from "spotify-web-api-node"
 
 mongoose.Promise = global.Promise;
 mongoose.connect("mongodb://mongo/test", { useMongoClient: true });
@@ -21,46 +22,9 @@ if (!CLIENT_ID || !CLIENT_SECRET) {
   process.exit(1);
 }
 
-const redirectURI = "http://localhost:3001/spotify-callback";
+const redirectURI = "http://localhost:3000/spotify-callback";
 
-app.get("/login", (req, res) => {
-  const authURL =
-    "https://accounts.spotify.com/authorize?" +
-    querystring.stringify({
-      redirect_uri: redirectURI,
-      client_id: CLIENT_ID,
-      response_type: "code",
-      scope: [
-        "playlist-read-private",
-        "playlist-read-collaborative",
-        "user-read-playback-state",
-        "user-modify-playback-state",
-        "user-read-currently-playing"
-      ].reduce((prev, current) => prev + " " + current)
-    });
-
-  //const authURL = "google.com"
-
-  res.redirect(authURL);
-});
-
-app.get("/spotify-callback", (req, res) => {
-  const { code, error, state } = req.query;
-  if (error) {
-    console.error(error);
-    return res.status(500).end("Something went wrong");
-  }
-
-  console.log({ code });
-  getTokens(code).then(tokenset => {
-    console.log({tokenset});
-    getUser(tokenset.access_token).then(user => {
-      console.log({user});
-    })
-  })
-});
-
-app.get("/backend/sign-in/initiate", (req, res) => {
+app.get("/sign-in/initiate", (req, res) => {
   const login = new Login({
     initiated: new Date(),
     redirect_uri: redirectURI
@@ -75,7 +39,7 @@ app.get("/backend/sign-in/initiate", (req, res) => {
           redirect_uri: redirectURI,
           client_id: CLIENT_ID,
           response_type: "code",
-          state: login._id,
+          state: "" + login._id,
           scope: [
             "playlist-read-private",
             "playlist-read-collaborative",
@@ -84,7 +48,6 @@ app.get("/backend/sign-in/initiate", (req, res) => {
             "user-read-currently-playing"
           ]
         });
-
       return res.json({ authURL, session: login._id });
     })
     .catch(err => {
@@ -141,21 +104,35 @@ function getUser(access_token) {
   });
 }
 
-app.post("/backend/sign-in/complete", bodyParser.json(), (req, res) => {
+app.post("/sign-in/complete", bodyParser.json(), (req, res) => {
   const { code, state } = req.body;
+  console.log({code, state});
+  Login.findById(state)
+    .then(login => {
+      getTokens(code).then(({ access_token, refresh_token }) => {
 
-  Login.findById(state).then(login => {
-    getTokens(code).then(({ access_token, refresh_token }) => {
-      getUser.then(user => {
-        login.set({
-          completed: new Date(),
-          access_token,
-          refresh_token,
-          spotifyId: user.id
+
+        var spotifyApi = new SpotifyApi({
+          clientId : CLIENT_ID,
+          clientSecret : CLIENT_SECRET
+        });
+
+        spotifyApi.getMe(access_token).then(user => {
+          console.log(user)
+          login.set({
+            completed: new Date(),
+            access_token,
+            refresh_token,
+            spotifyId: user.id
+          });
+
+          return res.send("Ok");
         });
       });
+    })
+    .catch(error => {
+      console.error(error);
     });
-  });
 });
 
 app.listen(3001);
